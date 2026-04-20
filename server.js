@@ -244,41 +244,55 @@ app.get("/", (_req, res) => {
 // POST /register
 // =========================
 app.post("/register", async (req, res) => {
+  try {
     const { email, password } = req.body || {};
+
     if (!email || !password) {
-        return res.status(400).json({ error: "Email and password are required" });
+      return res.status(400).json({ error: "Email and password are required" });
     }
+
     const existing = users.find((u) => u.email === email);
     if (existing) {
-        return res.status(400).json({ error: "User already exists" });
+      return res.status(400).json({ error: "User already exists" });
     }
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    // Create new user
-    const newUser = { email, password: hashedPassword };
-    users.push(newUser);
-    return res.status(201).json({ message: "User created successfully" });
+
+    const hash = await bcrypt.hash(password, 10);
+    users.push({ email, passwordHash: hash });
+
+    return res.status(201).json({ message: "User registered!" });
+  } catch (err) {
+    console.error("Register error:", err);
+    return res.status(500).json({ error: "Server error during register" });
+  }
 });
 
 // =========================
 // POST /login
 // =========================
 app.post("/login", async (req, res) => {
-  // Implement logic here based on the TODO 2.
-  const { email, password } = req.body || {};
-  if (!email || !password) {
+  try {
+    const { email, password } = req.body || {};
+
+    if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
-  }
-  const user = users.find((u) => u.email === email);
-  if (!user) {
+    }
+
+    const user = users.find((u) => u.email === email);
+    if (!user) {
       return res.status(400).json({ error: "User not found" });
-  }
-  const passwordMatch = await bcrypt.compare(password, user.password);
-  if (!passwordMatch) {
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!passwordMatch) {
       return res.status(400).json({ error: "Wrong password" });
+    }
+
+    const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: "1h" });
+    return res.json({ token });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({ error: "Server error during login" });
   }
-  const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: "1h" });
-  return res.json({ token }); 
 });
 
 // =========================
